@@ -10,15 +10,14 @@
 
 
 #Params, imports
-#import utils
-from datetime import datetime
 import Tkinter
+# This is a local wrapper, not a published library
 import TkHtml
 import sys
 
 #GUI
 
-class ManualTextClassifier:
+class ManualTextClassifierSingle:
     def __init__(self, items, labels=[0,1], output=sys.stdout,
                  winx=1280, winy=880):
         # items is a list of 2-tuples containing an identifier (such as a URL)
@@ -31,8 +30,8 @@ class ManualTextClassifier:
         self.numclassified = {}
         self.labels = labels
         if len(labels) < 2:
-            raise Exception("ManualHTMLClassifier needs at least 2 labels")
-        for label in labels:
+            raise Exception("Classifier needs at least 2 labels")
+        for label in self.labels:
             self.numclassified[label] = 0
         self.root = Tkinter.Tk()
         self.set_root_window_size(winx, winy)
@@ -68,7 +67,7 @@ class ManualTextClassifier:
 
     def set_root_window_size(self, winx, winy):
         # FIXME: This is all a horrible hack.
-#        self.root.geometry(''+str(winx)+'x'+str(winy))
+        # self.root.geometry(''+str(winx)+'x'+str(winy))
         self.root.rowconfigure(1, minsize=30)
         allocated = 30
         for i in range(2, 1+len(self.labels)):
@@ -108,7 +107,7 @@ class ManualTextClassifier:
         self.update_content()
 
 
-class ManualHTMLClassifier(ManualTextClassifier):
+class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
     def make_content(self):
         return TkHtml.Html(self.root)
 
@@ -124,66 +123,4 @@ class ManualHTMLClassifier(ManualTextClassifier):
         else:
             self.content.parse(new_content)
 
-#####
-#MAIN
-#####    
-if __name__ == "__main__":
-    categories = ("CrappyCat1",
-                  "MediocreCat2",
-                  "CompetentCat3",
-                  "MagnificentCat4")
 
-
-    strFormat="%Y-%m-%dT%H:%M:%SZ"
-    #start date chosen by hand though without any real reason
-    start_date = datetime.strptime("2013-04-27T12:00:00Z", strFormat)
-
-    #master = Tk()
-
-    #Load all the articles into memory first
-    print "Loading articles"
-    path = ''
-    articles = []
-    master_list = open(path + "articles_list_large.csv", "r")
-    total = 0
-
-    for line in master_list:
-        cells = line.split(",")
-     
-        
-        try:
-            dt = datetime.strptime(cells[2].strip(), strFormat)
-        #some noise in this field
-        except:
-            continue
-
-        #read article into memory if it is in the window (4 hours)
-        if dt > start_date and (dt - start_date).days <= 0 and (dt - start_date).seconds <= 14400:
-            articles.append( (cells[1].strip(), cells[3].strip()) )
-
-    print "There are", len(articles), "objects to classify."
-
-    try:
-        output = open(path + "story_pairs.csv", "r")
-        #first check how many pairs have already been done
-        completed = 0
-        for line in output:
-            completed = completed + 1
-
-        output.close()
-        print completed, "articles already completed"
-
-        articles = articles[completed:]
-
-    except:
-        print "Nothing classified yet"
-
-    #Now we are ready to classify
-    output = open(path + "story_pairs.csv", "a")
-
-    #Initialise and run the GUI
-    classifier = ManualHTMLClassifier(articles, categories, output)
-    Tkinter.mainloop()
-    output.close()
-
-            
