@@ -5,6 +5,8 @@
 #from a fixed date range within the dataset, also chosen at random
 #the interface presents each article next to each other article once
 #and asks for human judgment about whether or not the articles are related
+#
+#Copyright 2013-2014, Jonathan Bright and Tom Nicholls
 
 
 #Params, imports
@@ -92,7 +94,7 @@ class ManualTextClassifier:
             self.set_content()
         except IndexError:
             print "Finished!"
-            sys.exit()
+            self.root.destroy()
 
     def write_result(self, identifier, result):
         self.output.write(identifier)
@@ -114,71 +116,74 @@ class ManualHTMLClassifier(ManualTextClassifier):
         self.content.clear()
 
     def set_content(self):
-        self.clear_content
-        self.content.parse(self.items[self.idx][1])
-    
-
+        new_content = self.items[self.idx][1]
+        self.clear_content()
+        # FIXME: Fairly grotty hack to handle non-HTML content
+        if '<html>' not in new_content.lower():
+            self.content.parse('<html><body>'+new_content+'</html></body>')
+        else:
+            self.content.parse(new_content)
 
 #####
 #MAIN
 #####    
+if __name__ == "__main__":
+    categories = ("CrappyCat1",
+                  "MediocreCat2",
+                  "CompetentCat3",
+                  "MagnificentCat4")
 
-categories = ("CrappyCat1",
-              "MediocreCat2",
-              "CompetentCat3",
-              "MagnificentCat4")
 
+    strFormat="%Y-%m-%dT%H:%M:%SZ"
+    #start date chosen by hand though without any real reason
+    start_date = datetime.strptime("2013-04-27T12:00:00Z", strFormat)
 
-strFormat="%Y-%m-%dT%H:%M:%SZ"
-#start date chosen by hand though without any real reason
-start_date = datetime.strptime("2013-04-27T12:00:00Z", strFormat)
+    #master = Tk()
 
-#master = Tk()
+    #Load all the articles into memory first
+    print "Loading articles"
+    path = ''
+    articles = []
+    master_list = open(path + "articles_list_large.csv", "r")
+    total = 0
 
-#Load all the articles into memory first
-print "Loading articles"
-path = ''
-articles = []
-master_list = open(path + "articles_list_large.csv", "r")
-total = 0
-
-for line in master_list:
-    cells = line.split(",")
- 
-    
-    try:
-        dt = datetime.strptime(cells[2].strip(), strFormat)
-    #some noise in this field
-    except:
-        continue
-
-    #read article into memory if it is in the window (4 hours)
-    if dt > start_date and (dt - start_date).days <= 0 and (dt - start_date).seconds <= 14400:
-        articles.append( (cells[1].strip(), cells[3].strip()) )
-
-print "There are", len(articles), "objects to classify."
-
-try:
-    output = open(path + "story_pairs.csv", "r")
-    #first check how many pairs have already been done
-    completed = 0
-    for line in output:
-        completed = completed + 1
-
-    output.close()
-    print completed, "articles already completed"
-
-    articles = articles[completed:]
-
-except:
-    print "Nothing classified yet"
-
-#Now we are ready to classify
-output = open(path + "story_pairs.csv", "a")
-
-#Initialise and run the GUI
-classifier = ManualHTMLClassifier(articles, categories, output)
-Tkinter.mainloop()
-output.close()
-
+    for line in master_list:
+        cells = line.split(",")
+     
         
+        try:
+            dt = datetime.strptime(cells[2].strip(), strFormat)
+        #some noise in this field
+        except:
+            continue
+
+        #read article into memory if it is in the window (4 hours)
+        if dt > start_date and (dt - start_date).days <= 0 and (dt - start_date).seconds <= 14400:
+            articles.append( (cells[1].strip(), cells[3].strip()) )
+
+    print "There are", len(articles), "objects to classify."
+
+    try:
+        output = open(path + "story_pairs.csv", "r")
+        #first check how many pairs have already been done
+        completed = 0
+        for line in output:
+            completed = completed + 1
+
+        output.close()
+        print completed, "articles already completed"
+
+        articles = articles[completed:]
+
+    except:
+        print "Nothing classified yet"
+
+    #Now we are ready to classify
+    output = open(path + "story_pairs.csv", "a")
+
+    #Initialise and run the GUI
+    classifier = ManualHTMLClassifier(articles, categories, output)
+    Tkinter.mainloop()
+    output.close()
+
+            

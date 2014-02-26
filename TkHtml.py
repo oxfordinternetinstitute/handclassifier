@@ -55,8 +55,9 @@ class Html(Tkinter.Widget):
         self.tk.call(self._w, "parse", text)
 
     def clear(self):
-        "Clear the widget."
-        self.tk.call(self._w, "clear")
+        "Reset the widget."
+        # Changed to reflect the TkHtml3 command set
+        self.tk.call(self._w, "reset")
 
     def href(self, x, y):
         "Returns the href at coordinates X, Y"
