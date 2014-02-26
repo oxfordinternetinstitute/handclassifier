@@ -1,5 +1,5 @@
-hand-classifier
-===============
+handclassifier
+==============
 
 A quick-and-dirty python GUI for facilitating hand-classifying text and HTML content into arbitrary categories.
 
