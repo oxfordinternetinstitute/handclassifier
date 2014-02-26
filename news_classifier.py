@@ -2,7 +2,7 @@
 # Categorise news content
 
 import Tkinter
-import hand-classifier
+import handclassifier
 import datetime
 
 categories = ("CrappyCat1",
