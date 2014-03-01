@@ -6,13 +6,15 @@ import handclassifier
 import datetime
 import random
 import warctika
+import os
 
 categories = ("1 - Information transmission",
               "2 - Service delivery",
               "3 - Participation and collaboration",
-              "4 - Interactive democracy")
+              "4 - Interactive democracy",
+              "X - Uncertain")
 
-dirname = 'xxx'
+dirname = '../warctika/scratch/test'
 outfn = 'dton-hand-classifications.csv'
 
 proptoclassify = 0.1
@@ -27,23 +29,26 @@ print "Loading content"
 for fn in os.listdir(dirname):
     if not fn.endswith('.warc.gz'):
         continue
-    with warctika.WARCFile(fn, 'rb') as wf: 
-        for record in wf:
-            # This could be 'None' if there is no Content-Type field in the
-            # header (normally because the record is warcinfo or whatever).
-            # Fortunately, str(None) doesn't match 'text/'.
-            if not str(record.get_underlying_mimetype()).startswith('text/'):
+    wf = warctika.WARCFile(dirname+'/'+fn, 'rb')
+    for record in wf:
+        # This could be 'None' if there is no Content-Type field in the header.
+        # Fortunately, str(None) doesn't match 'text/'.
+        try:
+
+            if 'text/html' not in record.get_underlying_mimetype():
+                print "Rejecting", record.get_underlying_mimetype()
                 continue
-            if r.random() > proptoclassify):
+            if r.random() > proptoclassify:
                 continue
             # Read article into memory
             # TODO: Could make this a FilePart or similar to vastly
             # reduce the memory load if this is a problem.
-            try:
-                content.append((record.url,record.get_underlying_content()))
-            except Exception:
-                # May well be no actual content (e.g. metadata record)
-                continue
+            content.append((record.url,record.get_underlying_content()))
+        except Exception:
+            # May well be no actual content (e.g. metadata record), excepting
+            # either from get_underlying_mimetype() or _content().
+            continue
+    wf.close()
 
 print "There are", len(content), "objects to classify."
 
@@ -63,7 +68,9 @@ except:
 output = open(outfn, 'a')
 
 #Initialise and run the GUI
-classifier = ManualHTMLClassifierSingle(htmlpages, categories, output)
+classifier = handclassifier.ManualHTMLClassifierSingle(content,
+                                                       categories,
+                                                       output)
 Tkinter.mainloop()
 output.close()
 

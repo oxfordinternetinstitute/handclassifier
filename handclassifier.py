@@ -1,13 +1,17 @@
 #!/usr/bin/python
 #NER Project
 #Hand classifier
+#FIXME: Outdated
 #This program takes a fixed number of stories, at random
 #from a fixed date range within the dataset, also chosen at random
 #the interface presents each article next to each other article once
 #and asks for human judgment about whether or not the articles are related
 #
 #Copyright 2013-2014, Jonathan Bright and Tom Nicholls
-
+#
+# TODO: Open viewport on HTML widget starting at a header?
+# TODO: Keyboard control: Numbers to select categories, pgup/dn, arrows
+# TODO: Strip comments/JS/Nonsense before giving to the HTML widget?
 
 #Params, imports
 import Tkinter
@@ -118,7 +122,9 @@ class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
         new_content = self.items[self.idx][1]
         self.clear_content()
         # FIXME: Fairly grotty hack to handle non-HTML content
-        if '<html>' not in new_content.lower():
+        if '<body' not in new_content.lower():
+            print "<body not found."
+            print new_content
             self.content.parse('<html><body>'+new_content+'</html></body>')
         else:
             self.content.parse(new_content)
