@@ -37,16 +37,16 @@ class ManualTextClassifierSingle:
         self.set_root_window_size(winx, winy)
         self.buttons = []
 
-        # Article title / URL
+        # Article title / URL label
         self.text_title = Tkinter.Label(self.root, text="", anchor="w",
                                     fg="black", justify="left",
                                     font=("Helvetica", 16),
                                     width=90)
         self.text_title.grid(column=0,row=0, sticky='EW', padx=10)
 
+        # Main box with content to classify
         self.content = self.make_content()
         self.content.grid(column=0, row=1, rowspan=20, sticky='NSEW', padx=10)
-
         self.update_content()
 
         self.scrollbar = Tkinter.Scrollbar(self.root,
