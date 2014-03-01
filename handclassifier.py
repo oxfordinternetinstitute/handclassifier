@@ -21,7 +21,7 @@ class ManualTextClassifierSingle:
     def __init__(self, items, labels=[0,1], output=sys.stdout,
                  winx=1280, winy=880):
         # items is a list of 2-tuples containing an identifier (such as a URL)
-        # for the output, and the HTML content itself
+        # for the output, and the content itself
         # output is a file handle to output to
         # labels is a list of classification options to select from
         self.output = output

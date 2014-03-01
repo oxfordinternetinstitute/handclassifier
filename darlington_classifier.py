@@ -32,7 +32,7 @@ for fn in os.listdir(dirname):
             # TODO: Could make this a FilePart or similar to vastly
             # reduce the memory load if this is a problem.
             try:
-                content.append(record.get_underlying_content())
+                content.append((record.url,record.get_underlying_content()))
             except Exception:
                 # May well be no actual content (e.g. metadata record)
                 continue
