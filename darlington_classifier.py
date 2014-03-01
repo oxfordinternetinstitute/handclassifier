@@ -15,19 +15,27 @@ categories = ("1 - Information transmission",
 dirname = 'xxx'
 outfn = 'dton-hand-classifications.csv'
 
+proptoclassify = 0.1
+
 r = random.Random()
 r.seed(1818118181) # Arbitrary
 
-#Load all the objects into memory first
-print "Loading content"
 content = []
 
+#Load all the objects into memory first
+print "Loading content"
 for fn in os.listdir(dirname):
     if not fn.endswith('.warc.gz'):
         continue
-    for record in WARCFile(fn, 'rb'):
-        if (record.get_underlying_mimetype().startswith('text/') and
-                r.random() <= 0.1): # Take 10%
+    with warctika.WARCFile(fn, 'rb') as wf: 
+        for record in wf:
+            # This could be 'None' if there is no Content-Type field in the
+            # header (normally because the record is warcinfo or whatever).
+            # Fortunately, str(None) doesn't match 'text/'.
+            if not str(record.get_underlying_mimetype()).startswith('text/'):
+                continue
+            if r.random() > proptoclassify):
+                continue
             # Read article into memory
             # TODO: Could make this a FilePart or similar to vastly
             # reduce the memory load if this is a problem.
