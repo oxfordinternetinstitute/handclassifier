@@ -18,6 +18,10 @@ import Tkinter
 # This is a local wrapper, not a published library
 import TkHtml
 import sys
+# These needed for the browser version
+import webbrowser
+import tempfile
+import atexit
 
 #GUI
 
@@ -41,22 +45,8 @@ class ManualTextClassifierSingle:
         self.set_root_window_size(winx, winy)
         self.buttons = []
 
-        # Article title / URL label
-        self.text_title = Tkinter.Label(self.root, text="", anchor="w",
-                                    fg="black", justify="left",
-                                    font=("Helvetica", 16),
-                                    width=90)
-        self.text_title.grid(column=0,row=0, sticky='EW', padx=10)
-
-        # Main box with content to classify
-        self.content = self.make_content()
-        self.content.grid(column=0, row=1, rowspan=20, sticky='NSEW', padx=10)
+        self._setup_content()
         self.update_content()
-
-        self.scrollbar = Tkinter.Scrollbar(self.root,
-                                           command=self.content.yview)
-        self.scrollbar.grid(column=0, row=1, rowspan=20, sticky='NSE')
-        self.content.config(yscrollcommand=self.scrollbar.set)
 
         for i, label in enumerate(labels):
             self.buttons.append(
@@ -66,8 +56,24 @@ class ManualTextClassifierSingle:
                     command= lambda j=label: self.on_button_click(j)))
             self.buttons[-1].grid(column=1, row=1+i, sticky="SW", padx=10)
 
-    def make_content(self):
-        self.content = Tkinter.Text(self.root, wrap=Tkinter.WORD)
+    def _setup_content(self):
+        # Article title / URL label
+        self.text_title = Tkinter.Label(self.root, text="", anchor="w",
+                                    fg="black", justify="left",
+                                    font=("Helvetica", 16),
+                                    width=90)
+        self.text_title.grid(column=0,row=0, sticky='EW', padx=10)
+        # Main box with content to classify
+        self.content = self._get_content_object()
+        self.content.grid(column=0, row=1, rowspan=20, sticky='NSEW', padx=10)
+        self._add_scrollbar()
+        self.scrollbar = Tkinter.Scrollbar(self.root,
+                                           command=self.content.yview)
+        self.scrollbar.grid(column=0, row=1, rowspan=20, sticky='NSE')
+        self.content.config(yscrollcommand=self.scrollbar.set)
+
+    def _get_content_object(self):
+        return Tkinter.Text(self.root, wrap=Tkinter.WORD)
 
     def set_root_window_size(self, winx, winy):
         # FIXME: This is all a horrible hack.
@@ -82,6 +88,10 @@ class ManualTextClassifierSingle:
         for i in range(1+len(self.labels),21):
             self.root.rowconfigure(i, minsize=size)
 
+    def set_title(self, t):
+        self.text_title.config(text=t)
+        
+
     def clear_content(self):
         self.content.delete(1.0, Tkinter.END)
 
@@ -93,11 +103,11 @@ class ManualTextClassifierSingle:
         self.idx += 1
         try:
             print self.idx, self.items[self.idx][0]
-            self.text_title.config(text=self.items[self.idx][0])
+            self.set_title(self.items[self.idx][0])
             self.set_content()
         except IndexError:
             print "Finished!"
-            self.root.destroy()
+            self._shutdown_classifier()
 
     def write_result(self, identifier, result):
         self.output.write(identifier)
@@ -110,9 +120,12 @@ class ManualTextClassifierSingle:
         self.write_result(self.items[self.idx][0], result)
         self.update_content()
 
+    def _shutdown_classifier(self):
+        
+
 
 class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
-    def make_content(self):
+    def _get_content_object(self):
         return TkHtml.Html(self.root)
 
     def clear_content(self):
@@ -129,4 +142,35 @@ class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
         else:
             self.content.parse(new_content)
 
+
+class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
+    def _get_content_object(self):
+        # No window object in that sense
+        raise NotImplementedError
+
+    def _setup_content(self):
+        self.content = webbrowser.get()
+        self._tempfns = []
+
+    def set_title(self, t):
+        # No title
+        pass
+
+    def clear_content(self):
+        raise NotImplementedError
+
+    def set_content(self):
+        with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as fh:
+            self._tempfns.append(fh.name)
+            fh.write(self.items[self.idx][1])
+            url = 'file://'+fh.name
+        self.content.open(url, autoraise=False)
+
+    @atexit.register
+    def _close_tempfiles(self):
+        for fn in self._tempfns:
+            try:
+                os.unlink(fn)
+            except OSError:
+                print "File", fn, "already deleted."
 
