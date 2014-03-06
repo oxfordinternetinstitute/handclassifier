@@ -27,7 +27,7 @@ import re
 
 #GUI
 
-class ManualTextClassifierSingle:
+class ManualTextClassifierSingle(object):
     def __init__(self, items, labels=[0,1], output=sys.stdout,
                  winx=1280, winy=880):
         # items is a list of 2-tuples containing an identifier (such as a URL)
