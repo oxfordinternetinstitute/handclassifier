@@ -22,6 +22,8 @@ import sys
 import webbrowser
 import tempfile
 import atexit
+import os
+import re
 
 #GUI
 
@@ -42,9 +44,9 @@ class ManualTextClassifierSingle:
         for label in self.labels:
             self.numclassified[label] = 0
         self.root = Tkinter.Tk()
-        self.set_root_window_size(winx, winy)
         self.buttons = []
 
+        self._setup_root_window(winx, winy)
         self._setup_content()
         self.update_content()
 
@@ -75,6 +77,10 @@ class ManualTextClassifierSingle:
     def _get_content_object(self):
         return Tkinter.Text(self.root, wrap=Tkinter.WORD)
 
+    def _setup_root_window(self, winx, winy):
+        self.set_root_window_size(winx, winy)
+        self.root.wm_title("Classifier")
+
     def set_root_window_size(self, winx, winy):
         # FIXME: This is all a horrible hack.
         # self.root.geometry(''+str(winx)+'x'+str(winy))
@@ -90,7 +96,6 @@ class ManualTextClassifierSingle:
 
     def set_title(self, t):
         self.text_title.config(text=t)
-        
 
     def clear_content(self):
         self.content.delete(1.0, Tkinter.END)
@@ -107,7 +112,6 @@ class ManualTextClassifierSingle:
             self.set_content()
         except IndexError:
             print "Finished!"
-            self._shutdown_classifier()
 
     def write_result(self, identifier, result):
         self.output.write(identifier)
@@ -119,9 +123,6 @@ class ManualTextClassifierSingle:
         print result
         self.write_result(self.items[self.idx][0], result)
         self.update_content()
-
-    def _shutdown_classifier(self):
-        
 
 
 class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
@@ -144,13 +145,23 @@ class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
 
 
 class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
+    def __init__(self, *args, **kw):
+        super(ManualBrowserClassifierSingle, self).__init__(*args, **kw)
+        self._tempfns = []
+        atexit.register(self._close_tempfiles)
+
     def _get_content_object(self):
         # No window object in that sense
         raise NotImplementedError
 
+    def _setup_root_window(self, winx, winy):
+        (super(ManualBrowserClassifierSingle,self).
+            _setup_root_window(winx, winy))
+        # As we'll keep spawning web browser windows, stay on top
+        self.root.attributes("-topmost", True)
+
     def _setup_content(self):
         self.content = webbrowser.get()
-        self._tempfns = []
 
     def set_title(self, t):
         # No title
@@ -160,13 +171,16 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
         raise NotImplementedError
 
     def set_content(self):
-        with tempfile.NamedTemporaryFile(suffix='.html', delete=False) as fh:
+        with tempfile.NamedTemporaryFile(
+                # Mangle URL into filename, so it shows up in the titlebar.
+                # Take the first 100 characters, to avoid hitting OS limits.
+                suffix='__'+self.items[self.idx][0].replace('/#*','_')[:100]+'.html',
+                delete=False) as fh:
             self._tempfns.append(fh.name)
             fh.write(self.items[self.idx][1])
             url = 'file://'+fh.name
         self.content.open(url, autoraise=False)
 
-    @atexit.register
     def _close_tempfiles(self):
         for fn in self._tempfns:
             try:
@@ -174,3 +188,16 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
             except OSError:
                 print "File", fn, "already deleted."
 
+class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
+    """ Same as ManualBrowserClassifier, but uses a local Wayback Machine
+        installation to do the display of content."""
+    def __init__(self, wburl='http://localhost:8080/*/', *args, **kw):
+        super(ManualWaybackClassifierSingle, self).__init__(*args, **kw)
+        self.wburl = wburl
+
+    def set_content(self):
+        # XXX: Make this configurable (via __init__?)
+        url = self.items[self.idx][1]
+#        url = re.sub(r'^https?://', '', url)
+        url = self.wburl+url
+        self.content.open(url, autoraise=False)

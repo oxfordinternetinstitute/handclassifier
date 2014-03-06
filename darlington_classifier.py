@@ -12,10 +12,21 @@ categories = ("1 - Information transmission",
               "2 - Service delivery",
               "3 - Participation and collaboration",
               "4 - Interactive democracy",
-              "X - Uncertain")
+              "X - Exclude")
 
-dirname = '../warctika/scratch/test'
+dirname = 'dton-warcs'
 outfn = 'dton-hand-classifications.csv'
+
+# Due to an error in list.darlington.gov.uk/robots.txt, we have a lot of pages
+# in our set which should not have been collected. Let's drop them.
+discardurls = ('http://lis.darlington.gov.uk/profiles/',
+               'http://lis.darlington.gov.uk/dataviews/',
+               'http://lis.darlington.gov.uk/advancedprofiles/',
+               'http://lis.darlington.gov.uk/advanceddataviews/',
+               'http://lis.darlington.gov.uk/explorer/',
+               'http://lis.darlington.gov.uk/map/',
+               'http://lis.darlington.gov.uk/cache/',
+               'http://lis.darlington.gov.uk/ajax/')
 
 proptoclassify = 0.1
 
@@ -30,24 +41,36 @@ for fn in os.listdir(dirname):
     if not fn.endswith('.warc.gz'):
         continue
     wf = warctika.WARCFile(dirname+'/'+fn, 'rb')
-    for record in wf:
-        # This could be 'None' if there is no Content-Type field in the header.
-        # Fortunately, str(None) doesn't match 'text/'.
-        try:
-
-            if 'text/html' not in record.get_underlying_mimetype():
-                print "Rejecting", record.get_underlying_mimetype()
+    try:
+        for record in wf:
+            if not record.type in ['response','resource','conversion']:
                 continue
-            if r.random() > proptoclassify:
+            # This could be 'None' if there is no Content-Type field in the header.
+            if not str(record.get_underlying_mimetype()).startswith(
+                    ('text','application/xhtml','None')):
+                print "Rejecting", record.get_underlying_mimetype(), "\n\tfor", record.url
                 continue
+            if str(record.get_underlying_mimetype()).startswith(
+                    ('text/csv','text/css')):
+                print "Rejecting", record.get_underlying_mimetype(), "\n\tfor", record.url
+                continue
+            if record.url.startswith(discardurls):
+    #            print "Rejecting", record.url
+                continue
+            rval = r.random()
+            if rval > proptoclassify:
+    #            print "Not selecting ("+str(rval)+")", record.url
+                continue
+            print "Adding:", record.url
             # Read article into memory
             # TODO: Could make this a FilePart or similar to vastly
             # reduce the memory load if this is a problem.
+            # TODO: Could change interface to pass the mimetype - maybe
+            # make it easier to send to an appropriate program, or to name
+            # the file correctly when it's sent to a web browser?
             content.append((record.url,record.get_underlying_content()))
-        except Exception:
-            # May well be no actual content (e.g. metadata record), excepting
-            # either from get_underlying_mimetype() or _content().
-            continue
+    except IOError as e:
+        print e
     wf.close()
 
 print "There are", len(content), "objects to classify."
@@ -68,9 +91,9 @@ except:
 output = open(outfn, 'a')
 
 #Initialise and run the GUI
-classifier = handclassifier.ManualHTMLClassifierSingle(content,
-                                                       categories,
-                                                       output)
+classifier = handclassifier.ManualBrowserClassifierSingle(content,
+                                                          categories,
+                                                          output)
 Tkinter.mainloop()
 output.close()
 
