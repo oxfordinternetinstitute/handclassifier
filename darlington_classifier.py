@@ -17,7 +17,7 @@ categories = ("1 - Information transmission",
               "X - Exclude",
               "? - Unable to determine")
 
-dirname = 'dton-test-2'
+dirname = 'dton-test-3'
 outfn = 'dton-hand-classifications.csv'
 
 # Due to an error in lis.darlington.gov.uk/robots.txt, we have a lot of pages
@@ -52,11 +52,11 @@ for fn in os.listdir(dirname):
                 continue
             # This could be 'None' if there is no Content-Type field in the header.
             if not str(record.content[0].startswith(
-                    ('text','application/xhtml','None')):
+                    ('text','application/xhtml','None'))):
                 print "Rejecting", record.content[0], "\n\tfor", record.url
                 continue
             if str(record.content[0].startswith(
-                    ('text/csv','text/css')):
+                    ('text/csv','text/css'))):
                 print "Rejecting", record.content[0], "\n\tfor", record.url
                 continue
             if record.url.startswith(discardurls):
