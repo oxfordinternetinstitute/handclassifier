@@ -191,7 +191,7 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
 class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
     """ Same as ManualBrowserClassifier, but uses a local Wayback Machine
         installation to do the display of content."""
-    def __init__(self, wburl='http://localhost:8080/*/', *args, **kw):
+    def __init__(self, wburl='http://localhost:8080/wayback/', *args, **kw):
         super(ManualWaybackClassifierSingle, self).__init__(*args, **kw)
         self.wburl = wburl
 
