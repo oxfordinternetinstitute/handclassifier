@@ -36,7 +36,9 @@ discardurls = ('http://lis.darlington.gov.uk/profiles/',
 # HTTP status codes which represent a record successfully returned - these
 # are all we are interested in sampling
 successcodes = (200, 201, 202, 203, 206)
-proptoclassify = 0.01
+
+# Total number of items is ~612k
+proptoclassify = 0.002
 
 r = random.Random()
 r.seed(1818118181) # Arbitrary
@@ -117,7 +119,7 @@ except:
 output = open(outfn, 'a')
 
 #Initialise and run the GUI
-classifier = handclassifier.ManualBrowserClassifierSingle(content,
+classifier = handclassifier.ManualWaybackClassifierSingle(content,
                                                           categories,
                                                           output)
 Tkinter.mainloop()
