@@ -6,9 +6,11 @@ import handclassifier
 import datetime
 import random
 import os
+from collections import defaultdict
 # This can be installed with 'pip install warctools'. Beware that there are
 # several old versions floating around under different names in the index.
 from hanzo.warctools import WarcRecord
+from warcresponseparse import *
 
 categories = ("1 - Information transmission",
               "2 - Service delivery",
@@ -31,12 +33,16 @@ discardurls = ('http://lis.darlington.gov.uk/profiles/',
                'http://lis.darlington.gov.uk/cache/',
                'http://lis.darlington.gov.uk/ajax/')
 
+# HTTP status codes which represent a record successfully returned - these
+# are all we are interested in sampling
+successcodes = (200, 201, 202, 203, 206)
 proptoclassify = 0.01
 
 r = random.Random()
 r.seed(1818118181) # Arbitrary
 
 content = []
+rejects = defaultdict(int)
 
 #Load all the objects into memory first
 print "Loading content"
@@ -50,35 +56,46 @@ for fn in os.listdir(dirname):
                                    WarcRecord.RESOURCE,
                                    WarcRecord.CONVERSION]:
                 continue
+            if record.type == WarcRecord.RESPONSE:
+                ccode, cmime, cbody = parse_http_response(record)
+                if ccode not in successcodes:
+                    continue
+            else:
+                ccode = None
+                cmime = record.content[0]
+                cbody = record.content[1]
             # This could be 'None' if there is no Content-Type field in the header.
-            if not str(record.content[0].startswith(
-                    ('text','application/xhtml','None'))):
-                print "Rejecting", record.content[0], "\n\tfor", record.url
+            if not cmime.startswith(('text','application/xhtml','None')):
+    #            print "Rejecting", cmime, "\n\tfor", record.type, record.url
+                rejects[cmime] += 1
                 continue
-            if str(record.content[0].startswith(
-                    ('text/csv','text/css'))):
-                print "Rejecting", record.content[0], "\n\tfor", record.url
+            if cmime.startswith(('text/csv','text/css')):
+    #            print "Rejecting", cmime, "\n\tfor", record.type, record.url
+                rejects[cmime] += 1
                 continue
             if record.url.startswith(discardurls):
     #            print "Rejecting", record.url
+                rejects['discardurls'] += 1
                 continue
             rval = r.random()
             if rval > proptoclassify:
     #            print "Not selecting ("+str(rval)+")", record.url
+                rejects['not sampled'] += 1
                 continue
-            print "Adding:", record.url
+    #        print "Adding:", ccode, cmime, record.url
             # Read article into memory
             # TODO: Could make this a FilePart or similar to vastly
             # reduce the memory load if this is a problem.
             # TODO: Could change interface to pass the mimetype - maybe
             # make it easier to send to an appropriate program, or to name
             # the file correctly when it's sent to a web browser?
-            content.append((record.url,record.content[1]))
+            content.append((record.url,cbody))
     except IOError as e:
         print e
     wf.close()
 
 print "There are", len(content), "objects to classify."
+print "Rejects:", rejects
 
 try:
     output = open(outfn, 'r')
