@@ -21,6 +21,7 @@ import sys
 # These needed for the browser version
 import webbrowser
 import tempfile
+import string
 import atexit
 import os
 import re
@@ -146,9 +147,9 @@ class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
 
 class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
     def __init__(self, *args, **kw):
-        super(ManualBrowserClassifierSingle, self).__init__(*args, **kw)
         self._tempfns = []
         atexit.register(self._close_tempfiles)
+        super(ManualBrowserClassifierSingle, self).__init__(*args, **kw)
 
     def _get_content_object(self):
         # No window object in that sense
@@ -171,15 +172,16 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
         raise NotImplementedError
 
     def set_content(self):
-        with tempfile.NamedTemporaryFile(
-                # Mangle URL into filename, so it shows up in the titlebar.
-                # Take the first 100 characters, to avoid hitting OS limits.
-                suffix='__'+self.items[self.idx][0].replace('/#*','_')[:100]+'.html',
-                delete=False) as fh:
+        # Mangle URL into filename, so it shows up in the titlebar.
+        # Take the first 100 characters, to avoid hitting OS limits.
+        origurl = self.items[self.idx][0]
+        trantab = string.maketrans('/#*','___')
+        suf= '__'+origurl.translate(trantab)[:100]+'.html'
+        with tempfile.NamedTemporaryFile(suffix=suf, delete=False) as fh:
             self._tempfns.append(fh.name)
             fh.write(self.items[self.idx][1])
             url = 'file://'+fh.name
-        self.content.open(url, autoraise=False)
+            self.content.open(url, autoraise=False)
 
     def _close_tempfiles(self):
         for fn in self._tempfns:
@@ -192,8 +194,8 @@ class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
     """ Same as ManualBrowserClassifier, but uses a local Wayback Machine
         installation to do the display of content."""
     def __init__(self, wburl='http://localhost:8080/wayback/', *args, **kw):
-        super(ManualWaybackClassifierSingle, self).__init__(*args, **kw)
         self.wburl = wburl
+        super(ManualWaybackClassifierSingle, self).__init__(*args, **kw)
 
     def set_content(self):
         # XXX: Make this configurable (via __init__?)
