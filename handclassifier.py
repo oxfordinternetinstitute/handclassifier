@@ -199,7 +199,7 @@ class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
 
     def set_content(self):
         # XXX: Make this configurable (via __init__?)
-        url = self.items[self.idx][1]
+        url = self.items[self.idx][0]
 #        url = re.sub(r'^https?://', '', url)
         url = self.wburl+url
         self.content.open(url, autoraise=False)
