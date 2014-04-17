@@ -85,13 +85,16 @@ for fn in os.listdir(dirname):
                 rejects['not sampled'] += 1
                 continue
     #        print "Adding:", ccode, cmime, record.url
-            # Read article into memory
+            # Read article URL into memory. Don't need the article body with
+            # the Wayback classfier as it's fetched through the Wayback index.
+            # Not sending it through here as the second part of the tuple
+            # saves a good deal of memory.
             # TODO: Could make this a FilePart or similar to vastly
             # reduce the memory load if this is a problem.
             # TODO: Could change interface to pass the mimetype - maybe
             # make it easier to send to an appropriate program, or to name
             # the file correctly when it's sent to a web browser?
-            content.append((record.url,cbody))
+            content.append((record.url,None))
     except IOError as e:
         print e
     wf.close()
