@@ -119,9 +119,9 @@ except:
 output = open(outfn, 'a')
 
 #Initialise and run the GUI
-classifier = handclassifier.ManualWaybackClassifierSingle(content,
-                                                          categories,
-                                                          output)
+classifier = handclassifier.ManualWaybackClassifierSingle(items=content,
+                                                          labels=categories,
+                                                          output=output)
 Tkinter.mainloop()
 output.close()
 
