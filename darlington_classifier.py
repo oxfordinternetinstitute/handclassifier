@@ -6,6 +6,7 @@ import handclassifier
 import datetime
 import random
 import os
+import cPickle as pickle
 from collections import defaultdict
 # This can be installed with 'pip install warctools'. Beware that there are
 # several old versions floating around under different names in the index.
@@ -20,6 +21,7 @@ categories = ("1 - Information transmission",
               "? - Unable to determine")
 
 dirname = 'dton-test-3'
+picklefn = 'dton-content.pickle'
 outfn = 'dton-hand-classifications.csv'
 
 # Due to an error in lis.darlington.gov.uk/robots.txt, we have a lot of pages
@@ -47,57 +49,66 @@ content = []
 rejects = defaultdict(int)
 
 #Load all the objects into memory first
-print "Loading content"
-for fn in os.listdir(dirname):
-    if not fn.endswith('.warc.gz'):
-        continue
-    wf = WarcRecord.open_archive(dirname+'/'+fn, mode='rb')
-    try:
-        for record in wf:
-            if not record.type in [WarcRecord.RESPONSE,
-                                   WarcRecord.RESOURCE,
-                                   WarcRecord.CONVERSION]:
-                continue
-            if record.type == WarcRecord.RESPONSE:
-                ccode, cmime, cbody = parse_http_response(record)
-                if ccode not in successcodes:
+try:
+    with open(picklefn, "rb") as fh:
+        print "Unpickling selected sample."
+        content = pickle.load(fh)
+except IOError:
+    print "Pickled file does not appear to exist. Loading content."
+    for fn in os.listdir(dirname):
+        if not fn.endswith('.warc.gz'):
+            continue
+        wf = WarcRecord.open_archive(dirname+'/'+fn, mode='rb')
+        try:
+            for record in wf:
+                if not record.type in [WarcRecord.RESPONSE,
+                                       WarcRecord.RESOURCE,
+                                       WarcRecord.CONVERSION]:
                     continue
-            else:
-                ccode = None
-                cmime = record.content[0]
-                cbody = record.content[1]
-            # This could be 'None' if there is no Content-Type field in the header.
-            if not cmime.startswith(('text','application/xhtml','None')):
-    #            print "Rejecting", cmime, "\n\tfor", record.type, record.url
-                rejects[cmime] += 1
-                continue
-            if cmime.startswith(('text/csv','text/css')):
-    #            print "Rejecting", cmime, "\n\tfor", record.type, record.url
-                rejects[cmime] += 1
-                continue
-            if record.url.startswith(discardurls):
-    #            print "Rejecting", record.url
-                rejects['discardurls'] += 1
-                continue
-            rval = r.random()
-            if rval > proptoclassify:
-    #            print "Not selecting ("+str(rval)+")", record.url
-                rejects['not sampled'] += 1
-                continue
-    #        print "Adding:", ccode, cmime, record.url
-            # Read article URL into memory. Don't need the article body with
-            # the Wayback classfier as it's fetched through the Wayback index.
-            # Not sending it through here as the second part of the tuple
-            # saves a good deal of memory.
-            # TODO: Could make this a FilePart or similar to vastly
-            # reduce the memory load if this is a problem.
-            # TODO: Could change interface to pass the mimetype - maybe
-            # make it easier to send to an appropriate program, or to name
-            # the file correctly when it's sent to a web browser?
-            content.append((record.url,None))
-    except IOError as e:
-        print e
-    wf.close()
+                if record.type == WarcRecord.RESPONSE:
+                    ccode, cmime, cbody = parse_http_response(record)
+                    if ccode not in successcodes:
+                        continue
+                else:
+                    ccode = None
+                    cmime = record.content[0]
+                    cbody = record.content[1]
+                # This could be 'None' if there is no Content-Type field in the header.
+                if not cmime.startswith(('text','application/xhtml','None')):
+        #            print "Rejecting", cmime, "\n\tfor", record.type, record.url
+                    rejects[cmime] += 1
+                    continue
+                if cmime.startswith(('text/csv','text/css')):
+        #            print "Rejecting", cmime, "\n\tfor", record.type, record.url
+                    rejects[cmime] += 1
+                    continue
+                if record.url.startswith(discardurls):
+        #            print "Rejecting", record.url
+                    rejects['discardurls'] += 1
+                    continue
+                rval = r.random()
+                if rval > proptoclassify:
+        #            print "Not selecting ("+str(rval)+")", record.url
+                    rejects['not sampled'] += 1
+                    continue
+        #        print "Adding:", ccode, cmime, record.url
+                # Read article URL into memory. Don't need the article body with
+                # the Wayback classfier as it's fetched through the Wayback index.
+                # Not sending it through here as the second part of the tuple
+                # saves a good deal of memory.
+                # TODO: Could make this a FilePart or similar to vastly
+                # reduce the memory load if this is a problem.
+                # TODO: Could change interface to pass the mimetype - maybe
+                # make it easier to send to an appropriate program, or to name
+                # the file correctly when it's sent to a web browser?
+                content.append((record.url,None))
+        except IOError as e:
+            print e
+        wf.close()
+    with open(picklefn, 'wb') as output:
+        print "Pickling content for use next time."
+        pickle.dump(content, output)
+
 
 print "There are", len(content), "objects to classify."
 print "Rejects:", rejects
