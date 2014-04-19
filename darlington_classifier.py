@@ -17,6 +17,7 @@ categories = ("1 - Information transmission",
               "2 - Service delivery",
               "3 - Participation and collaboration",
               "4 - Interactive democracy",
+              "D - Data, not for browsing",
               "X - Exclude",
               "? - Unable to determine")
 
