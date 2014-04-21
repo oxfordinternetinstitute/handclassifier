@@ -66,7 +66,8 @@ except IOError:
                                        WarcRecord.RESOURCE,
                                        WarcRecord.CONVERSION]:
                     continue
-                if record.type == WarcRecord.RESPONSE:
+                if (record.type == WarcRecord.RESPONSE
+                        and record.url.startswith('http')):
                     ccode, cmime, cbody = parse_http_response(record)
                     if ccode not in successcodes:
                         continue
