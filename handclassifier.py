@@ -31,9 +31,12 @@ import re
 class ManualTextClassifierSingle(object):
     def __init__(self, items, labels=[0,1], output=sys.stdout,
                  winx=1280, winy=880):
-        # items is a list of 2-tuples containing an identifier (such as a URL)
-        # for the output, and the content itself
-        # output is a file handle to output to
+        # items is a list of 2+-tuples containing an identifier (such as a
+        # URL) for the output, the content itself, and any number of optional
+        # additional fields to be stored in the output csv. This could 
+        # usefully include, for example, Content-Type if it is wanted to
+        # preserve this in the output to help train a classifier. 
+        # output is an output file handle
         # labels is a list of classification options to select from
         self.output = output
         self.items = items
@@ -113,16 +116,21 @@ class ManualTextClassifierSingle(object):
             self.set_content()
         except IndexError:
             print "Finished!"
+            self.root.destroy()
+            self.root.quit()
 
-    def write_result(self, identifier, result):
-        self.output.write(identifier)
+    def write_result(self, item, result):
+        self.output.write(item[0])
         self.output.write(",")
         self.output.write(result)
+        if len(item) > 2:
+            for o in item[2:]:
+                self.output.write(",")
+                self.output.write(str(o))
         self.output.write("\n")
-       
     def on_button_click(self, result):
         print result
-        self.write_result(self.items[self.idx][0], result)
+        self.write_result(self.items[self.idx], result)
         self.update_content()
 
 

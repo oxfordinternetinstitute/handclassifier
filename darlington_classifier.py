@@ -14,14 +14,14 @@ from hanzo.warctools import WarcRecord
 from warcresponseparse import *
 
 categories = ("1 - Information transmission",
-              "2 - Service delivery",
+              "2 - Electronic service delivery",
               "3 - Participation and collaboration",
               "4 - Interactive democracy",
               "D - Data, not for browsing",
               "X - Exclude",
               "? - Unable to determine")
 
-dirname = 'dton-test-3'
+dirname = 'dton-test-5'
 picklefn = 'dton-content.pickle'
 outfn = 'dton-hand-classifications.csv'
 
@@ -61,6 +61,7 @@ except IOError:
             continue
         wf = WarcRecord.open_archive(dirname+'/'+fn, mode='rb')
         try:
+            print fn
             for record in wf:
                 if not record.type in [WarcRecord.RESPONSE,
                                        WarcRecord.RESOURCE,
@@ -76,14 +77,14 @@ except IOError:
                     cmime = record.content[0]
                     cbody = record.content[1]
                 # This could be 'None' if there is no Content-Type field in the header.
-                if not cmime.startswith(('text','application/xhtml','None')):
+#                if not cmime.startswith(('text','application/xhtml','None')):
         #            print "Rejecting", cmime, "\n\tfor", record.type, record.url
-                    rejects[cmime] += 1
-                    continue
-                if cmime.startswith(('text/csv','text/css')):
+#                    rejects[cmime] += 1
+#                    continue
+#                if cmime.startswith(('text/csv','text/css')):
         #            print "Rejecting", cmime, "\n\tfor", record.type, record.url
-                    rejects[cmime] += 1
-                    continue
+#                    rejects[cmime] += 1
+#                    continue
                 if record.url.startswith(discardurls):
         #            print "Rejecting", record.url
                     rejects['discardurls'] += 1
@@ -103,7 +104,7 @@ except IOError:
                 # TODO: Could change interface to pass the mimetype - maybe
                 # make it easier to send to an appropriate program, or to name
                 # the file correctly when it's sent to a web browser?
-                content.append((record.url,None))
+                content.append((record.url,None,ccode,cmime))
         except IOError as e:
             print e
         wf.close()
@@ -126,6 +127,9 @@ try:
     content = content[completed:]
 except:
     print "Nothing classified yet"
+
+if len(content) == 0:
+    exit("Nothing to classify. Exiting.")
 
 # TODO: Check for records which are recorded as "? - Unable to determine",
 # remove them from the output file and add them to the end of the content
