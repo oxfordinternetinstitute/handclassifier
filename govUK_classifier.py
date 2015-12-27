@@ -1,8 +1,10 @@
-#!/usr/bin/python3
+#!/usr/bin/python2
 # Categorise govUK web content
 
+from __future__ import print_function
 import Tkinter
 import handclassifier
+import pymongo
 import datetime
 import random
 import os
@@ -13,9 +15,10 @@ from collections import defaultdict
 from hanzo.warctools import WarcRecord
 from warcresponseparse import *
 
-categories = ("1 - Information transmission",
-              "2 - Electronic service delivery",
-              "3 - Participation and collaboration",
+categories = ("SI - Service, Informational",
+              "ST - Service, Transactional",
+              "DI - Democracy, Informational",
+              "DT - Democracy, Transactional",
               "D - Data, not for browsing",
               "X - Exclude",
               "? - Unable to determine")
@@ -56,6 +59,9 @@ with open(nodemapfn, 'rb') as f:
         # the file correctly when it's sent to a web browser?
         content.append((row[0],None))
 
+# Shuffle content so it's not in alphabetical order for classifying
+r.shuffle(content)
+
 print("There are", len(content), "objects to classify.")
 print("Rejects:", rejects)
 
@@ -66,10 +72,10 @@ try:
     for line in output:
         completed = completed + 1
     output.close()
-    print completed, "classifications already completed"
+    print(completed, "classifications already completed")
     content = content[completed:]
 except:
-    print "Nothing classified yet"
+    print("Nothing classified yet")
 
 if len(content) == 0:
     exit("Nothing to classify. Exiting.")
@@ -82,9 +88,10 @@ if len(content) == 0:
 output = open(outfn, 'a')
 
 #Initialise and run the GUI
-classifier = handclassifier.ManualWaybackClassifierSingle(items=content,
-                                                          labels=categories,
-                                                          output=output,
+classifier = handclassifier.ManualWaybackPlusMongoDBClassifierSingle(
+                'warctext', 'url_to_text',
+                client=pymongo.mongo_client.MongoClient(host='192.168.1.103'),
+                items=content, labels=categories, output=output,
                                                           wburl=wburl)
 Tkinter.mainloop()
 output.close()

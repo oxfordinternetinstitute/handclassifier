@@ -25,6 +25,9 @@ import string
 import atexit
 import os
 import re
+import urllib
+# And this for the pymongo version
+import pymongo
 
 #GUI
 
@@ -105,6 +108,9 @@ class ManualTextClassifierSingle(object):
         self.content.delete(1.0, Tkinter.END)
 
     def set_content(self):
+        self._set_text_content()
+
+    def _set_text_content(self):
         self.clear_content
         self.content.insert(Tkinter.INSERT, self.items[self.idx][1])
 
@@ -142,6 +148,9 @@ class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
         self.content.clear()
 
     def set_content(self):
+        self._set_html_content()
+
+    def _set_html_content(self):
         new_content = self.items[self.idx][1]
         self.clear_content()
         # FIXME: Fairly grotty hack to handle non-HTML content
@@ -180,16 +189,22 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
         raise NotImplementedError
 
     def set_content(self):
+        self._set_browser_content()
+
+    def _set_browser_content(self, origurl = None, page_content=None):
+        if not origurl:
+            origurl=self.items[self.idx][0]
+        if not page_content:
+            page_content= self.items[self.idx][1]
         # Mangle URL into filename, so it shows up in the titlebar.
         # Take the first 100 characters, to avoid hitting OS limits.
-        origurl = self.items[self.idx][0]
-        trantab = string.maketrans('/#*','___')
-        suf= '__'+origurl.translate(trantab)[:100]+'.html'
+        trantab = string.maketrans('/#* ','____')
+        suf= '__'+urllib.unquote(origurl).translate(trantab)[:100]+'.html'
         with tempfile.NamedTemporaryFile(suffix=suf, delete=False) as fh:
             self._tempfns.append(fh.name)
-            fh.write(self.items[self.idx][1])
+            fh.write(page_content.encode('utf-8'))
             url = 'file://'+fh.name
-            self.content.open(url, autoraise=False)
+            self.content.open(url, new=0, autoraise=False)
 
     def _close_tempfiles(self):
         for fn in self._tempfns:
@@ -208,8 +223,45 @@ class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
         super(ManualWaybackClassifierSingle, self).__init__(*args, **kw)
 
     def set_content(self):
+        self._set_wayback_content()
+
+    def _set_wayback_content(self):
         # XXX: Make this configurable (via __init__?)
         url = self.items[self.idx][0]
 #        url = re.sub(r'^https?://', '', url)
         url = self.wburl+url
-        self.content.open(url, autoraise=False)
+        self.content.open(url, new=0, autoraise=False)
+
+class ManualWaybackPlusMongoDBClassifierSingle(ManualWaybackClassifierSingle):
+    """ Same as Manual WaybackClassifier, but with a MongoDB instance as a
+        fallback source of data."""
+    def __init__(self, mongodb, collection,
+        client=pymongo.mongo_client.MongoClient(), *args, **kw):
+        self.mongoclient = client
+        self.db = pymongo.database.Database(self.mongoclient, mongodb)
+        self.collection = pymongo.collection.Collection(self.db, collection)
+
+        super(ManualWaybackPlusMongoDBClassifierSingle, self).__init__(*args, **kw)
+        self.fallbackbutton = Tkinter.Button(self.root,
+                    text='Load from MongoDB',
+                    command=self._set_mongo_content)
+        self.fallbackbutton.grid(column=1, row=len(self.buttons)+1, sticky="SW", padx=10)
+    
+    def _set_mongo_content(self):
+        # Get fallback content from MongoDB
+        url = self.items[self.idx][0]
+        try:
+            # This is a bit horrid.
+#            page_content = u'<html><body><pre>'+unicode(self.collection.find_one(url)['value'], errors='ignore')+u'</pre></body></html>'
+            page_content = ((u'<html><head><meta http-equiv="Content-Type" '
+                             u'content="text/html;charset=UTF-8"><head>'
+                             u'<body><pre>')+
+                             self.collection.find_one(url)['value']+
+                             u'</pre></body></html>')
+        except Exception as e:
+            page_content = "Unable to fetch text from MongoDB for "+url+"."
+            raise e
+        finally:
+            self._set_browser_content(page_content=page_content)
+
+
