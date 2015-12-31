@@ -10,10 +10,6 @@ import random
 import os
 import csv
 from collections import defaultdict
-# This can be installed with 'pip install warctools'. Beware that there are
-# several old versions floating around under different names in the index.
-from hanzo.warctools import WarcRecord
-from warcresponseparse import *
 
 categories = ("SI - Service, Informational",
               "ST - Service, Transactional",
