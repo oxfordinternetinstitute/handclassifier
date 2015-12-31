@@ -9,8 +9,7 @@ classes for each document, with the document itself presented in another
 window:
 
 * ManualTextClassifierSingle presents text in a Tkinter window
-* ManualHTMLClassifierSingle renders HTML in a Tkinter window
-* ManualBrowserClassifierSingle uses the system web browser to render HTML
+* ManualBrowserClassifierSingle uses the system web browser to render content
 * ManualWaybackClassifierSingle looks up the wanted document by URL in an
   OpenWayback installation (http://www.netpreserve.org/openwayback) using the
   system web browser
@@ -26,8 +25,6 @@ Copyright 2013-2015, Tom Nicholls and Jonathan Bright
 
 #Params, imports
 import Tkinter
-# This is a local wrapper, not a published library
-import TkHtml
 import sys
 # These needed for the browser version
 import webbrowser
@@ -210,35 +207,6 @@ class ManualTextClassifierSingle(object):
         if self._callback:
             self._callback(itemlabel, result)
         self.update_content()
-
-
-class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
-    """Hand classify a set of HTML items using Tkinter.
-
-    This is a subclass of ManualTextClassifierSingle, and overrides
-    clear_content() and set_content() to use TkHtml to display the
-    content."""
-    def _get_content_object(self):
-        return TkHtml.Html(self.root)
-
-    def clear_content(self):
-        """Clear the content window."""
-        self.content.clear()
-
-    def set_content(self):
-        """(Indirectly) fill the content window with the next item."""
-        self._set_html_content()
-
-    def _set_html_content(self):
-        new_content = self.items[self.idx][1]
-        self.clear_content()
-        # FIXME: Fairly grotty hack to handle non-HTML content
-        if '<body' not in new_content.lower():
-            print "<body not found."
-            print new_content
-            self.content.parse('<html><body>'+new_content+'</html></body>')
-        else:
-            self.content.parse(new_content)
 
 
 class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
