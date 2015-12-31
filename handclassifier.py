@@ -54,16 +54,19 @@ class ManualTextClassifierSingle(object):
     labels -- a list of classification options to select from
     nprevclass -- the number of previously classified objects (in case
         of batch operation)
+    callback -- a function to be called (with parameters identifier,
+        classification) once a determination is made (default: None).  
 
     This class is also used as the base class for other classifiers in this
     module."""
     def __init__(self, items, labels=[0,1], output=sys.stdout,
-                 winx=1280, winy=880, nprevclass=0):
+                 winx=1280, winy=880, nprevclass=0, callback=None):
         self.output = output
         self.items = items
         self.idx = -1
         self.numclassified = {}
         self.nprevclass = nprevclass
+        self._callback = callback
         self.labels = labels
         if len(labels) < 2:
             raise Exception("Classifier needs at least 2 labels")
@@ -192,12 +195,16 @@ class ManualTextClassifierSingle(object):
         """Handle a click on one of the result buttons.
 
         Normally run as a callback, writes the new result and triggers the
-        content window to be updated with the next item of content.
+        content window to be updated with the next item of content. Also calls
+        the callback function given to the class constructor if present.
 
         result -- the category to apply to the current item
         """ 
         print result
-        self.write_result(self.items[self.idx], result)
+        itemlabel = self.items[self.idx]
+        self.write_result(itemlabel, result)
+        if self._callback:
+            self._callback(itemlabel, result)
         self.update_content()
 
 
