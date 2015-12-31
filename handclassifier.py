@@ -1,17 +1,28 @@
-#!/usr/bin/python
-#NER Project
-#Hand classifier
-#FIXME: Outdated
-#This program takes a fixed number of stories, at random
-#from a fixed date range within the dataset, also chosen at random
-#the interface presents each article next to each other article once
-#and asks for human judgment about whether or not the articles are related
-#
-#Copyright 2013-2014, Jonathan Bright and Tom Nicholls
-#
-# TODO: Open viewport on HTML widget starting at a header?
-# TODO: Keyboard control: Numbers to select categories, pgup/dn, arrows
-# TODO: Strip comments/JS/Nonsense before giving to the HTML widget?
+#!/usr/bin/python2
+"""A quick-and-dirty python GUI for facilitating hand-classifying text and
+HTML content into arbitrary categories.
+
+This is still rudimentary and the API should not be considered stable.
+
+The basic framework is to use a Tkinter gui window to present the possible
+classes for each document, with the document itself presented in another
+window:
+
+* ManualTextClassifierSingle presents text in a Tkinter window
+* ManualHTMLClassifierSingle renders HTML in a Tkinter window
+* ManualBrowserClassifierSingle uses the system web browser to render HTML
+* ManualWaybackClassifierSingle looks up the wanted document by URL in an
+  OpenWayback installation (http://www.netpreserve.org/openwayback) using the
+  system web browser
+* ManualWaybackPlusMongoDBClassifierSingle is equivalent to the Wayback
+  classifier, but adds a fallback "Load from MongoDB" button to pull the text
+  from a MongoDB instance
+
+This code is largely by Tom Nicholls, based upon earlier work by Jonathan
+Bright. 
+
+Copyright 2013-2015, Tom Nicholls and Jonathan Bright
+"""
 
 #Params, imports
 import Tkinter
@@ -32,19 +43,27 @@ import pymongo
 #GUI
 
 class ManualTextClassifierSingle(object):
+    """Hand classify a set of text items using Tkinter.
+
+    items -- a list of 2+-tuples containing an identifier (such as a
+        URL) for the output, the content itself, and any number of optional
+        additional fields to be stored in the output csv. This could 
+        usefully include, for example, Content-Type if it is wanted to
+        preserve this in the output to help train a classifier. 
+    output -- an output file handle
+    labels -- a list of classification options to select from
+    nprevclass -- the number of previously classified objects (in case
+        of batch operation)
+
+    This class is also used as the base class for other classifiers in this
+    module."""
     def __init__(self, items, labels=[0,1], output=sys.stdout,
-                 winx=1280, winy=880):
-        # items is a list of 2+-tuples containing an identifier (such as a
-        # URL) for the output, the content itself, and any number of optional
-        # additional fields to be stored in the output csv. This could 
-        # usefully include, for example, Content-Type if it is wanted to
-        # preserve this in the output to help train a classifier. 
-        # output is an output file handle
-        # labels is a list of classification options to select from
+                 winx=1280, winy=880, nprevclass=0):
         self.output = output
         self.items = items
         self.idx = -1
         self.numclassified = {}
+        self.nprevclass = nprevclass
         self.labels = labels
         if len(labels) < 2:
             raise Exception("Classifier needs at least 2 labels")
@@ -62,7 +81,7 @@ class ManualTextClassifierSingle(object):
                 Tkinter.Button(
                     self.root,
                     text=label,
-                    command= lambda j=label: self.on_button_click(j)))
+                    command= lambda j=label: self._on_button_click(j)))
             self.buttons[-1].grid(column=1, row=1+i, sticky="SW", padx=10)
 
     def _setup_content(self):
@@ -89,6 +108,14 @@ class ManualTextClassifierSingle(object):
         self.root.wm_title("Classifier")
 
     def set_root_window_size(self, winx, winy):
+        """Set the size of the root classifier window.
+
+        FIXME: Currently ignores winx and uses an alternative algorithm to lay
+            out the window.
+
+        winx -- width (px)
+        winy -- height (px)
+        """
         # FIXME: This is all a horrible hack.
         # self.root.geometry(''+str(winx)+'x'+str(winy))
         self.root.rowconfigure(1, minsize=30)
@@ -102,12 +129,17 @@ class ManualTextClassifierSingle(object):
             self.root.rowconfigure(i, minsize=size)
 
     def set_title(self, t):
+        """Set the content window title.
+
+        t -- title"""
         self.text_title.config(text=t)
 
     def clear_content(self):
+        """Clear the content window."""
         self.content.delete(1.0, Tkinter.END)
 
     def set_content(self):
+        """(Indirectly) fill the content window with the next item."""
         self._set_text_content()
 
     def _set_text_content(self):
@@ -115,9 +147,9 @@ class ManualTextClassifierSingle(object):
         self.content.insert(Tkinter.INSERT, self.items[self.idx][1])
 
     def update_content(self):
+        """Update the content window with the next item to be classified."""
         self.idx += 1
         try:
-            print self.idx, self.items[self.idx][0]
             self.set_title(self.items[self.idx][0])
             self.set_content()
         except IndexError:
@@ -125,29 +157,65 @@ class ManualTextClassifierSingle(object):
             self.root.destroy()
             self.root.quit()
 
-    def write_result(self, item, result):
+    def write_result(self, item, result, sep=','):
+        """Write a hand classification to the output file as a CSV line.
+
+        The written line is of the form:
+            item[0],result,[item[2][item[3][...]]] (though with the separator
+            given by sep)
+        The output stream is flushed to prevent lost classifications.
+
+        item -- one element of the items list passed to the class constructor.
+            This will be a 2+-tuple containing an identifier (such as a
+            URL) for the output, the content itself, and any number of optional
+            additional fields to be stored in the output csv. This could 
+            usefully include, for example, Content-Type if it is wanted to
+            preserve this in the output to help train a classifier. 
+        result -- a textual category
+        sep -- the CSV separator (default: ',')
+        """
+        if self.nprevclass > 0:
+            print self.idx, '/', self.idx+self.nprevclass, self.items[self.idx][0]
+        else:
+            print self.idx, self.items[self.idx][0]
+ 
         self.output.write(item[0])
-        self.output.write(",")
+        self.output.write(sep)
         self.output.write(result)
         if len(item) > 2:
             for o in item[2:]:
-                self.output.write(",")
+                self.output.write(sep)
                 self.output.write(str(o))
         self.output.write("\n")
-    def on_button_click(self, result):
+        self.output.flush()
+    def _on_button_click(self, result):
+        """Handle a click on one of the result buttons.
+
+        Normally run as a callback, writes the new result and triggers the
+        content window to be updated with the next item of content.
+
+        result -- the category to apply to the current item
+        """ 
         print result
         self.write_result(self.items[self.idx], result)
         self.update_content()
 
 
 class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
+    """Hand classify a set of HTML items using Tkinter.
+
+    This is a subclass of ManualTextClassifierSingle, and overrides
+    clear_content() and set_content() to use TkHtml to display the
+    content."""
     def _get_content_object(self):
         return TkHtml.Html(self.root)
 
     def clear_content(self):
+        """Clear the content window."""
         self.content.clear()
 
     def set_content(self):
+        """(Indirectly) fill the content window with the next item."""
         self._set_html_content()
 
     def _set_html_content(self):
@@ -163,6 +231,16 @@ class ManualHTMLClassifierSingle(ManualTextClassifierSingle):
 
 
 class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
+    """Hand classify a set of web items using Tkinter and the system web
+    browser.
+
+    This is a subclass of ManualHTMLClassifierSingle. It overrides
+    set_content() to display web content in the system browser rather than
+    in a TkHtml window.
+
+    It does not provide clear_content(), as this is not possible using
+    python's webbrowser interface, and has a null implementation of
+    set_title() for similar reasons."""
     def __init__(self, *args, **kw):
         self._tempfns = []
         atexit.register(self._close_tempfiles)
@@ -182,13 +260,16 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
         self.content = webbrowser.get()
 
     def set_title(self, t):
-        # No title
+        """Silently fails to change the content window title -- this is not
+        possible through a web browser as we do not control the title."""
         pass
 
     def clear_content(self):
+        """Not implemented -- cannot do this with a web browser"""
         raise NotImplementedError
 
     def set_content(self):
+        """(Indirectly) load the web browser with the next item."""
         self._set_browser_content()
 
     def _set_browser_content(self, origurl = None, page_content=None):
@@ -214,15 +295,24 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
                 print "File", fn, "already deleted."
 
 class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
-    """ Same as ManualBrowserClassifier, but uses a local Wayback Machine
-        installation to do the display of content. As a result, the content
-        part of the items tuple is irrelevant and can be None to save
-        memory if desired."""
+    """Hand classify a set of HTML items using an OpenWayback installation,
+    Tkinter and the system web browser.
+
+    This is a subclass of ManualBrowserClassifierSingle. It overrides
+    set_content() to retrieve the HTMl content from OpenWayback rather than
+    the items list passed to the constructor. As a result, the content
+    part of the items tuple is irrelevant and can be None to save
+    memory if desired.
+
+    wburl -- the URL of the OpenWayback installation to be used (default:
+        http://localhost:8080/wayback/
+    """
     def __init__(self, wburl='http://localhost:8080/wayback/', *args, **kw):
         self.wburl = wburl
         super(ManualWaybackClassifierSingle, self).__init__(*args, **kw)
 
     def set_content(self):
+        """(Indirectly) load the web browser with the next item."""
         self._set_wayback_content()
 
     def _set_wayback_content(self):
@@ -233,8 +323,23 @@ class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
         self.content.open(url, new=0, autoraise=False)
 
 class ManualWaybackPlusMongoDBClassifierSingle(ManualWaybackClassifierSingle):
-    """ Same as Manual WaybackClassifier, but with a MongoDB instance as a
-        fallback source of data."""
+    """Hand classify a set of web items using an OpenWayback installation,
+    a MongoDB database containing alternative textual content, Tkinter and
+    the system web browser.
+
+    This is a subclass of ManualWaybackClassifierSingle. It adds an
+    additional button to the classification window to retrieve text from
+    a MongoDB database if needed. This is useful to allow a fallback in
+    case the OpenWayback instance does not have (or cannot handle) the
+    page required. It was implemented to handle WARC 'conversion' records
+    with plain text versions of PDF/Word documents, which are not currently
+    handled by OpenWayback.
+
+    mongodb -- the name of the MongoDB database
+    collection -- the name of the MongoDB collection
+    client -- a pymongo client (default: pymongo.mongo_client.MongoClient()
+        which by default tries to connect to the local machine)
+    """
     def __init__(self, mongodb, collection,
         client=pymongo.mongo_client.MongoClient(), *args, **kw):
         self.mongoclient = client
@@ -245,10 +350,16 @@ class ManualWaybackPlusMongoDBClassifierSingle(ManualWaybackClassifierSingle):
         self.fallbackbutton = Tkinter.Button(self.root,
                     text='Load from MongoDB',
                     command=self._set_mongo_content)
-        self.fallbackbutton.grid(column=1, row=len(self.buttons)+1, sticky="SW", padx=10)
+        self.fallbackbutton.grid(column=1, row=len(self.buttons)+1,
+                                 sticky="SW", padx=10)
     
     def _set_mongo_content(self):
-        # Get fallback content from MongoDB
+        """ Get fallback content from MongoDB and load it into the web browser.
+
+        Runs on callback from the 'Load from MongoDB' button. Uses the
+        configured pymongo client, database and collection to get text with
+        a key matching the object we're currently classifying. 
+        """
         url = self.items[self.idx][0]
         try:
             # This is a bit horrid.

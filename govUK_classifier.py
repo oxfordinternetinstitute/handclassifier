@@ -65,16 +65,15 @@ r.shuffle(content)
 print("There are", len(content), "objects to classify.")
 print("Rejects:", rejects)
 
+completed = 0
 try:
-    output = open(outfn, 'r')
-    #first check how many classifications have already been done
-    completed = 0
-    for line in output:
-        completed = completed + 1
-    output.close()
+    with open(outfn, 'r') as output:
+        #first check how many classifications have already been done
+        for line in output:
+            completed = completed + 1
     print(completed, "classifications already completed")
     content = content[completed:]
-except:
+except Exception:
     print("Nothing classified yet")
 
 if len(content) == 0:
@@ -92,7 +91,7 @@ classifier = handclassifier.ManualWaybackPlusMongoDBClassifierSingle(
                 'warctext', 'url_to_text',
                 client=pymongo.mongo_client.MongoClient(host='192.168.1.103'),
                 items=content, labels=categories, output=output,
-                                                          wburl=wburl)
+                wburl=wburl, nprevclass=completed)
 Tkinter.mainloop()
 output.close()
 
