@@ -7,8 +7,8 @@ mirror-out.txt
 story_pairs.csv
 sun-out.txt
 telegraph-out.txt
-dton-hand-classifications.csv
 dton-warcs
-nodemap-sorted-filtered.tsv
+.Rhistory
 *.pyc
-
+*.csv
+*.tsv
