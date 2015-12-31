@@ -50,10 +50,14 @@ class ManualTextClassifierSingle(object):
         additional fields to be stored in the output csv. This could 
         usefully include, for example, Content-Type if it is wanted to
         preserve this in the output to help train a classifier. 
-    output -- an output file handle
-    labels -- a list of classification options to select from
+    labels -- a list of classification options to select from (default: [0,1])
+    output -- an output file handle (default: stdout)
+    winx -- the desired width of the classification window in pixels (default:
+        1280). Currently not used. 
+    winy -- the desired height of the classification window in pixels (default:
+        880).
     nprevclass -- the number of previously classified objects (in case
-        of batch operation)
+        of batch operation) (default: 0)
     callback -- a function to be called (with parameters identifier,
         classification) once a determination is made (default: None).  
 
