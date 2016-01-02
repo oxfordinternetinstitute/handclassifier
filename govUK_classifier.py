@@ -11,11 +11,11 @@ import os
 import csv
 from collections import defaultdict
 
-categories = ("SI - Service, Informational",
-              "ST - Service, Transactional",
-              "DI - Democracy, Informational",
-              "DT - Democracy, Transactional",
-              "D - Data, not for browsing",
+categories = ("SI - Service Informational",
+              "ST - Service Transactional",
+              "DI - Democracy Informational",
+              "DT - Democracy Transactional",
+              "D - Data not for browsing",
               "X - Exclude",
               "? - Unable to determine")
 
@@ -69,8 +69,11 @@ try:
             completed = completed + 1
     print(completed, "classifications already completed")
     content = content[completed:]
-except Exception:
+    output = open(outfn, 'ba')
+except IOError:
     print("Nothing classified yet")
+    output = open(outfn, 'ba')
+    output.write("URL;Classification\r\n")
 
 if len(content) == 0:
     exit("Nothing to classify. Exiting.")
@@ -79,8 +82,6 @@ if len(content) == 0:
 # remove them from the output file and add them to the end of the content
 # list to try again
 
-#Now we are ready to classify
-output = open(outfn, 'a')
 
 #Initialise and run the GUI
 classifier = handclassifier.ManualWaybackPlusMongoDBClassifierSingle(
