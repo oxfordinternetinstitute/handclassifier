@@ -1,13 +1,13 @@
-#!/usr/bin/python2
+#!/usr/bin/python3
 # Categorise govUK web content
 
-from __future__ import print_function
-import Tkinter
+import tkinter
 import handclassifier
 import pymongo
 import datetime
 import random
 import os
+import sys
 import csv
 from collections import defaultdict
 
@@ -36,7 +36,7 @@ rejects = defaultdict(int)
 content = []
 
 #Load all the objects into memory first
-with open(nodemapfn, 'rb') as f:
+with open(nodemapfn, 'r') as f:
     reader = csv.reader(f, dialect='excel-tab')
     for row in reader:
         if r.random() > proptoclassify:
@@ -69,10 +69,10 @@ try:
             completed = completed + 1
     print(completed, "classifications already completed")
     content = content[completed:]
-    output = open(outfn, 'ba')
+    output = open(outfn, 'a')
 except IOError:
     print("Nothing classified yet")
-    output = open(outfn, 'ba')
+    output = open(outfn, 'a')
     output.write("URL;Classification\r\n")
 
 if len(content) == 0:
@@ -88,7 +88,7 @@ classifier = handclassifier.ManualWaybackPlusMongoDBClassifierSingle(
                 'warctext', 'url_to_text',
                 client=pymongo.mongo_client.MongoClient(host='192.168.1.103'),
                 items=content, labels=categories, output=output,
-                wburl=wburl, nprevclass=completed)
-Tkinter.mainloop()
+                wburl=wburl, nprevclass=completed, debug=sys.stderr)
+tkinter.mainloop()
 output.close()
 

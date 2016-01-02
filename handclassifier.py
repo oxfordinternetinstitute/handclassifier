@@ -29,6 +29,9 @@ try:
 except ImportError:
     import Tkinter as tkinter
 import sys
+import os
+import csv
+import string
 # These needed for the browser version
 import webbrowser
 import tempfile
@@ -52,7 +55,7 @@ class ManualTextClassifierSingle(object):
         usefully include, for example, Content-Type if it is wanted to
         preserve this in the output to help train a classifier. 
     labels -- a list of classification options to select from (default: [0,1])
-    output -- an output file handle (default: stdout)
+    output -- a binary output stream (default: stdout)
     winx -- the desired width of the classification window in pixels (default:
         1280). Currently not used. 
     winy -- the desired height of the classification window in pixels (default:
@@ -63,12 +66,13 @@ class ManualTextClassifierSingle(object):
         classification) once a determination is made (default: None).
     csvdialect -- a csv.writer dialect to use when writing results (default:
         excel-tab).
+    debug -- a text output stream for printing debug messages (default: None)
 
     This class is also used as the base class for other classifiers in this
     module."""
     def __init__(self, items, labels=[0,1], output=sys.stdout,
                  winx=1280, winy=880, nprevclass=0, callback=None,
-                 csvdialect='excel-tab'):
+                 csvdialect='excel-tab', debug=None):
         self.items = items
         self.idx = -1
         self.numclassified = {}
@@ -79,6 +83,11 @@ class ManualTextClassifierSingle(object):
             raise Exception("Classifier needs at least 2 labels")
         for label in self.labels:
             self.numclassified[label] = 0
+
+        if debug:
+            self._debug = debug
+        else:
+            self._debug = open(os.devnull)
 
         self._csvwriter = csv.writer(output, dialect=csvdialect)
 
@@ -136,8 +145,8 @@ class ManualTextClassifierSingle(object):
         for i in range(2, 1+len(self.labels)):
             self.root.rowconfigure(i, minsize=20)
             allocated += 20
-        size = (winy - allocated) / (20 - len(self.labels))
-        print("row size =", size)
+        size = (winy - allocated) // (20 - len(self.labels))
+        print("row size =", size, file=self._debug)
         for i in range(1+len(self.labels),21):
             self.root.rowconfigure(i, minsize=size)
 
@@ -166,17 +175,16 @@ class ManualTextClassifierSingle(object):
             self.set_title(self.items[self.idx][0])
             self.set_content()
         except IndexError:
-            print("Finished!")
+            print("Finished!", file=self._debug)
             self.root.destroy()
             self.root.quit()
 
-    def write_result(self, item, result, sep=','):
+    def write_result(self, item, result):
         """Write a hand classification to the output file as a CSV line.
 
         The written line is of the form:
-            item[0],result,[item[2][item[3][...]]] (though with the separator
-            given by sep)
-        The output stream is flushed to prevent lost classifications.
+            item[0],result,[item[2][item[3][...]]] (though in the CSV format
+                specified in the class constructor).
 
         item -- one element of the items list passed to the class constructor.
             This will be a 2+-tuple containing an identifier (such as a
@@ -185,14 +193,15 @@ class ManualTextClassifierSingle(object):
             usefully include, for example, Content-Type if it is wanted to
             preserve this in the output to help train a classifier. 
         result -- a textual category
-        sep -- the CSV separator (default: ',')
         """
         if self.nprevclass > 0:
-            print(self.idx, '/', self.idx+self.nprevclass, self.items[self.idx][0])
+            print(self.idx+1, '/', self.idx+self.nprevclass+1,
+                    self.items[self.idx][0], result, file=self._debug)
         else:
-            print(self.idx, self.items[self.idx][0])
+            print(self.idx+1, self.items[self.idx][0], result,
+                    file=self._debug)
 
-        output = [item[0], result]+item[2:]
+        output = [item[0], result]+list(item[2:])
         # Unfortunately, Python 2 and Python 3 have quite incompatible csv
         # modules: 3 expects unicode, 2 can't really handle unicode at all :-/
         if not sys.version_info > (3,):
@@ -207,7 +216,7 @@ class ManualTextClassifierSingle(object):
 #                self.output.write(sep)
 #                self.output.write(str(o))
 #        self.output.write("\n")
-        self.output.flush()
+#        self.output.flush()
     def _on_button_click(self, result):
         """Handle a click on one of the result buttons.
 
@@ -217,7 +226,6 @@ class ManualTextClassifierSingle(object):
 
         result -- the category to apply to the current item
         """ 
-        print(result)
         itemlabel = self.items[self.idx]
         self.write_result(itemlabel, result)
         if self._callback:
@@ -274,7 +282,13 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
             page_content= self.items[self.idx][1]
         # Mangle URL into filename, so it shows up in the titlebar.
         # Take the first 100 characters, to avoid hitting OS limits.
-        trantab = string.maketrans('/#* ','____')
+        # Try Py3, fall back to Py2
+        f = b'/#* '
+        t = b'____'
+        if sys.version_info >= (3,):
+            trantab = bytes.maketrans(f,t)
+        else:
+            trantab = string.maketrans(f,t)
         suf= '__'+unquote(origurl).translate(trantab)[:100]+'.html'
         with tempfile.NamedTemporaryFile(suffix=suf, delete=False) as fh:
             self._tempfns.append(fh.name)
@@ -287,7 +301,7 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
             try:
                 os.unlink(fn)
             except OSError:
-                print("File", fn, "already deleted.")
+                print("File", fn, "already deleted.", file=self._debug)
 
 class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
     """Hand classify a set of HTML items using an OpenWayback installation,
