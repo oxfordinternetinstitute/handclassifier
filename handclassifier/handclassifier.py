@@ -280,7 +280,7 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
         pass
 
     def clear_content(self):
-        """Not implemented -- cannot do this with a web browser"""
+        """Not implemented -- cannot do this with the system web browser."""
         raise NotImplementedError
 
     def set_content(self):
