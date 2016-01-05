@@ -12,3 +12,4 @@ dton-warcs
 *.pyc
 *.csv
 *.tsv
+.~lock*

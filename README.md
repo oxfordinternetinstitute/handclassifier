@@ -3,8 +3,6 @@ handclassifier
 A quick-and-dirty python GUI for facilitating hand-classifying text and
 web content into arbitrary categories.
 
-This is still rudimentary and the API should not be considered stable.
-
 The basic framework is to use a tkinter gui window to present the possible
 classes for each document, with the document itself presented in another
 window:
@@ -19,7 +17,9 @@ window:
   from a MongoDB instance
 
 This code is largely by Tom Nicholls, based upon earlier work by Jonathan
-Bright.
+Bright. Some example scripts are provided, together with a related piece of
+code which classifies pairs of content against each other; this is earlier and
+very rough, but may prove interesting.
 
 Copyright 2013-2015, Tom Nicholls and Jonathan Bright
 contact: tom.nicholls@oii.ox.ac.uk

@@ -1,8 +1,6 @@
 """A quick-and-dirty python GUI for facilitating hand-classifying text and
 web content into arbitrary categories.
 
-This is still rudimentary and the API should not be considered stable.
-
 The basic framework is to use a tkinter gui window to present the possible
 classes for each document, with the document itself presented in another
 window:

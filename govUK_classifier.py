@@ -48,11 +48,6 @@ with open(nodemapfn, 'r') as f:
         # the Wayback classfier as it's fetched through the Wayback index.
         # Not sending it through here as the second part of the tuple
         # saves a good deal of memory.
-        # TODO: Could make this a FilePart or similar to vastly
-        # reduce the memory load if this is a problem.
-        # TODO: Could change interface to pass the mimetype - maybe
-        # make it easier to send to an appropriate program, or to name
-        # the file correctly when it's sent to a web browser?
         content.append((row[0],None))
 
 # Shuffle content so it's not in alphabetical order for classifying
