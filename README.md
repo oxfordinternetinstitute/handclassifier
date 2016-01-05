@@ -22,6 +22,7 @@ code which classifies pairs of content against each other; this is earlier and
 very rough, but may prove interesting.
 
 Copyright 2013-2015, Tom Nicholls and Jonathan Bright
+
 contact: tom.nicholls@oii.ox.ac.uk
 
 This work is available under the terms of the GNU General Purpose Licence
@@ -34,4 +35,7 @@ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+[![DOI](https://zenodo.org/badge/6315/oxfordinternetinstitute/handclassifier.svg)](https://zenodo.org/badge/latestdoi/6315/oxfordinternetinstitute/handclassifier)
+
 
