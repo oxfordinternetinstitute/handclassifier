@@ -1,6 +1,6 @@
 handclassifier
 ==============
-A quick-and-dirty python GUI for facilitating hand-classifying text and
+A quick-and-dirty Python GUI for facilitating hand-classifying text and
 web content into arbitrary categories.
 
 The basic framework is to use a tkinter gui window to present the possible
