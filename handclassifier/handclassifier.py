@@ -5,7 +5,7 @@ The basic framework is to use a tkinter gui window to present the possible
 classes for each document, with the document itself presented in another
 window:
 
-* ManualTextClassifierSingle presents text in a tkinter window
+* ManualTextClassifier presents text in a tkinter window
 * ManualBrowserClassifierSingle uses the system web browser to render content
 * ManualWaybackClassifierSingle looks up the wanted document by URL in an
   OpenWayback installation (http://www.netpreserve.org/openwayback) using the
@@ -20,7 +20,7 @@ window:
 This code is largely by Tom Nicholls, based upon earlier work by Jonathan
 Bright.
 
-Copyright 2013-2015, Tom Nicholls and Jonathan Bright
+Copyright 2013-2017, Tom Nicholls and Jonathan Bright
 contact: tom.nicholls@oii.ox.ac.uk
 
 This work is available under the terms of the GNU General Purpose Licence
@@ -56,10 +56,10 @@ try:
     from urllib.parse import unquote
 except ImportError:
     from urllib import unquote
-# And this for the pymongo version
+# This for the MongoDB version
 import pymongo
 
-class ManualTextClassifierSingle(object):
+class ManualTextClassifier(object):
     """Hand classify a set of text items using tkinter.
 
     items -- a list of 2+-tuples containing an identifier (such as a
@@ -80,12 +80,15 @@ class ManualTextClassifierSingle(object):
     csvdialect -- a csv.writer dialect to use when writing results (default:
         excel-tab).
     debug -- a text output stream for printing debug messages (default: None)
+    pair -- classify the relationship between a pair of items; the second title
+        and text should be passed as the third and fourth elements of
+        the 'items' tuple (default: False)
 
     This class is also used as the base class for other classifiers in this
     module."""
     def __init__(self, items, labels=[0,1], output=sys.stdout,
                  winx=1280, winy=880, nprevclass=0, callback=None,
-                 csvdialect='excel-tab', debug=None):
+                 csvdialect='excel-tab', debug=None, pair=False):
         self.items = items
         self.idx = -1
         self.numclassified = {}
@@ -100,7 +103,9 @@ class ManualTextClassifierSingle(object):
         if debug:
             self._debug = debug
         else:
-            self._debug = open(os.devnull)
+            self._debug = open(os.devnull, 'w')
+
+        self.pair = pair
 
         self._output = output
         self._csvwriter = csv.writer(self._output, dialect=csvdialect)
@@ -118,23 +123,43 @@ class ManualTextClassifierSingle(object):
                     self.root,
                     text=label,
                     command= lambda j=label: self._on_button_click(j)))
-            self.buttons[-1].grid(column=1, row=1+i, sticky="SW", padx=10)
+            self.buttons[-1].grid(column=1+int(self.pair), row=1+i, sticky="SW", padx=10)
 
     def _setup_content(self):
+        titlewidth = 90
+        if self.pair:
+            titlewidth = titlewidth // 2
         # Article title / URL label
         self.text_title = tkinter.Label(self.root, text="", anchor="w",
                                     fg="black", justify="left",
                                     font=("Helvetica", 16),
-                                    width=90)
+                                    width=titlewidth)
         self.text_title.grid(column=0,row=0, sticky='EW', padx=10)
         # Main box with content to classify
         self.content = self._get_content_object()
         self.content.grid(column=0, row=1, rowspan=20, sticky='NSEW', padx=10)
-        self._add_scrollbar()
-        self.scrollbar = tkinter.Scrollbar(self.root,
-                                           command=self.content.yview)
-        self.scrollbar.grid(column=0, row=1, rowspan=20, sticky='NSE')
-        self.content.config(yscrollcommand=self.scrollbar.set)
+
+#        self.scrollbar = tkinter.Scrollbar(self.root,
+#                                           command=self.content.yview)
+#        self.scrollbar.grid(column=0, row=1, rowspan=20, sticky='NSE')
+#        self.content.config(yscrollcommand=self.scrollbar.set)
+
+        if self.pair:
+            self.text_title_2 = tkinter.Label(self.root, text="", anchor="w",
+                                        fg="black", justify="left",
+                                        font=("Helvetica", 16),
+                                        width=titlewidth)
+            self.text_title_2.grid(column=1,row=0, sticky='EW', padx=10)
+
+
+            # Second main box with content to classify
+            self.content_2 = self._get_content_object()
+            self.content_2.grid(column=1, row=1, rowspan=20, sticky='NSEW', padx=10)
+
+#            self.scrollbar_2 = tkinter.Scrollbar(self.root,
+#                                                 command=self.content_2.yview)
+#            self.scrollbar_2.grid(column=1, row=1, rowspan=20, sticky='NSE')
+#            self.content_2.config(yscrollcommand=self.scrollbar_2.set)
 
     def _get_content_object(self):
         return tkinter.Text(self.root, wrap=tkinter.WORD)
@@ -164,29 +189,39 @@ class ManualTextClassifierSingle(object):
         for i in range(1+len(self.labels),21):
             self.root.rowconfigure(i, minsize=size)
 
-    def set_title(self, t):
-        """Set the content window title.
+    def set_title(self, t, t2=None):
+        """Set the content window title(s).
 
-        t -- title"""
+        t -- title,
+        t2 -- second title (default: None)"""
         self.text_title.config(text=t)
+        if self.pair:
+            self.text_title_2.config(text=t2)
 
     def clear_content(self):
         """Clear the content window."""
         self.content.delete(1.0, tkinter.END)
+        if self.pair:
+            self.content_2.delete(1.0, tkinter.END)
 
     def set_content(self):
         """(Indirectly) fill the content window with the next item."""
         self._set_text_content()
 
     def _set_text_content(self):
-        self.clear_content
+        self.clear_content()
         self.content.insert(tkinter.INSERT, self.items[self.idx][1])
+        if self.pair:
+            self.content_2.insert(tkinter.INSERT, self.items[self.idx][3])
 
     def update_content(self):
         """Update the content window with the next item to be classified."""
         self.idx += 1
         try:
-            self.set_title(self.items[self.idx][0])
+            if self.pair:
+                self.set_title(self.items[self.idx][0], self.items[self.idx][2])
+            else:
+                self.set_title(self.items[self.idx][0])
             self.set_content()
         except IndexError:
             print("Finished!", file=self._debug)
@@ -208,14 +243,18 @@ class ManualTextClassifierSingle(object):
             preserve this in the output to help train a classifier. 
         result -- a textual category
         """
+        if self.pair:
+            output = [item[0], item[2], result]+list(item[4:])
+        else:
+            output = [item[0], result]+list(item[2:])
+
         if self.nprevclass > 0:
             print(self.idx+1, '/', self.idx+self.nprevclass+1,
-                    self.items[self.idx][0], result, file=self._debug)
+                    output, file=self._debug)
         else:
-            print(self.idx+1, self.items[self.idx][0], result,
-                    file=self._debug)
+            print(self.idx+1,
+                    output, file=self._debug)
 
-        output = [item[0], result]+list(item[2:])
         # Unfortunately, Python 2 and Python 3 have quite incompatible csv
         # modules: 3 expects unicode, 2 can't really handle unicode at all :-/
         if not sys.version_info > (3,):
@@ -223,16 +262,7 @@ class ManualTextClassifierSingle(object):
         self._csvwriter.writerow(output)
         # Paranoia
         self._output.flush()
- 
-#        self.output.write(item[0])
-#        self.output.write(sep)
-#        self.output.write(result)
-#        if len(item) > 2:
-#            for o in item[2:]:
-#                self.output.write(sep)
-#                self.output.write(str(o))
-#        self.output.write("\n")
-#        self.output.flush()
+
     def _on_button_click(self, result):
         """Handle a click on one of the result buttons.
 
@@ -248,8 +278,10 @@ class ManualTextClassifierSingle(object):
             self._callback(itemlabel, result)
         self.update_content()
 
+class ManualTextClassifierSingle(ManualTextClassifier):
+    pass
 
-class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
+class ManualBrowserClassifierSingle(ManualTextClassifier):
     """Hand classify a set of web items using tkinter and the system web
     browser.
 
@@ -259,11 +291,16 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
 
     It does not provide clear_content(), as this is not possible using
     python's webbrowser interface, and has a null implementation of
-    set_title() for similar reasons."""
+    set_title() for similar reasons.
+
+    It does not (yet) handle the case where pair=True."""
     def __init__(self, *args, **kw):
         self._tempfns = []
         atexit.register(self._close_tempfiles)
         super(ManualBrowserClassifierSingle, self).__init__(*args, **kw)
+        if self.pair:
+            print("Pair classification not yet implemented in-browser")
+            raise NotImplementedError
 
     def _get_content_object(self):
         # No window object in that sense
@@ -468,5 +505,4 @@ class ManualWaybackPlusMongoDBClassifierSingle(ManualWaybackClassifierSingle):
             raise e
         finally:
             self._set_browser_content(page_content=page_content)
-
 
