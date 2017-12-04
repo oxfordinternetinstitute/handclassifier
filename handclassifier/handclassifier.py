@@ -10,6 +10,9 @@ window:
 * ManualWaybackClassifierSingle looks up the wanted document by URL in an
   OpenWayback installation (http://www.netpreserve.org/openwayback) using the
   system web browser
+* ManualWaybackClassifierLink looks up the wanted source document by URL in an
+  OpenWayback installation (http://www.netpreserve.org/openwayback) using the
+  system web browser and displays the link target to be classified.
 * ManualWaybackPlusMongoDBClassifierSingle is equivalent to the Wayback
   classifier, but adds a fallback "Load from MongoDB" button to pull the text
   from a MongoDB instance
@@ -99,7 +102,8 @@ class ManualTextClassifierSingle(object):
         else:
             self._debug = open(os.devnull)
 
-        self._csvwriter = csv.writer(output, dialect=csvdialect)
+        self._output = output
+        self._csvwriter = csv.writer(self._output, dialect=csvdialect)
 
         self.root = tkinter.Tk()
         self.buttons = []
@@ -217,6 +221,8 @@ class ManualTextClassifierSingle(object):
         if not sys.version_info > (3,):
             output = [s.encode('utf-8') for s in output]
         self._csvwriter.writerow(output)
+        # Paranoia
+        self._output.flush()
  
 #        self.output.write(item[0])
 #        self.output.write(sep)
@@ -247,9 +253,9 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
     """Hand classify a set of web items using tkinter and the system web
     browser.
 
-    This is a subclass of ManualHTMLClassifierSingle. It overrides
+    This is a subclass of ManualTextClassifierSingle. It overrides
     set_content() to display web content in the system browser rather than
-    in a TkHtml window.
+    text in a separate window.
 
     It does not provide clear_content(), as this is not possible using
     python's webbrowser interface, and has a null implementation of
@@ -279,7 +285,7 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
 
     def clear_content(self):
         """Not implemented -- cannot do this with the system web browser."""
-        raise NotImplementedError
+        pass
 
     def set_content(self):
         """(Indirectly) load the web browser with the next item."""
@@ -312,6 +318,69 @@ class ManualBrowserClassifierSingle(ManualTextClassifierSingle):
                 os.unlink(fn)
             except OSError:
                 print("File", fn, "already deleted.", file=self._debug)
+
+class LinkClassifierMixin(object):
+    """Mixin to hand classify a set of web links. Provides an additional window
+    indicating the source and destination URLs for the link to be classified.
+
+    The destination of the link to be classified is passed as the third
+    element of each tuple in 'items'.
+
+    items -- a list of 3+-tuples containing an identifier (such as a
+        URL) for the output, the content itself, the target of the link to be
+        classified and any number of optional additional fields to be stored 
+        in the output csv. This could usefully include, for example,
+        Content-Type if it is wanted to preserve this in the output to help
+        train a classifier. 
+    """
+    def __init__(self, items, *args, **kw):
+        try:
+            _ = items[0][2]
+        except IndexError:
+            raise IndexError("When using LinkClassifierMixin the items tuples "
+                             "must be of length 3+")
+        # Set up the root environment and other stuff first
+        super(LinkClassifierMixin, self).__init__(*args, items=items, **kw)
+        # And then add a little link window
+        self.linkwindow = tkinter.Toplevel(self.root)
+        self._setup_link_window()
+        # This will have been skipped during the root environment setup
+        self._set_link_content()
+
+    def _setup_link_window(self):
+        # Main box with link names
+        self.link_content = tkinter.Text(self.linkwindow,
+                                         wrap=tkinter.WORD)
+        self.link_content.grid(column=0, row=1, rowspan=2,
+                               sticky='NSEW', padx=10)
+        # Force to top
+        self.linkwindow.attributes("-topmost", True)
+
+    def clear_content(self):
+        """Clear the links window."""
+        try:
+            self.link_content.delete(1.0, tkinter.END)
+        except AttributeError:
+            # Not set up yet
+            pass
+        # And cooperatively clear the main content window
+        super(LinkClassifierMixin, self).clear_content()
+
+    def _set_link_content(self):
+        self.clear_content()
+        try:
+            self.link_content.insert(tkinter.INSERT,
+                                     (self.items[self.idx][0]+'\n'+
+                                      self.items[self.idx][2]))
+        except AttributeError:
+            # Not set up yet
+            pass
+
+    def set_content(self):
+        """(Indirectly) fill the link windows with the next item."""
+        self._set_link_content()
+        # Cooperatively set the main content window
+        super(LinkClassifierMixin, self).set_content()
 
 class ManualWaybackClassifierSingle(ManualBrowserClassifierSingle):
     """Hand classify a set of HTML items using an OpenWayback installation,
@@ -359,13 +428,17 @@ class ManualWaybackPlusMongoDBClassifierSingle(ManualWaybackClassifierSingle):
     client -- a pymongo client (default: pymongo.mongo_client.MongoClient()
         which by default tries to connect to the local machine)
     """
-    def __init__(self, mongodb, collection,
+    def __init__(self, mongodb, collection, urlfield='url',
+        contentfield='content',
         client=pymongo.mongo_client.MongoClient(), *args, **kw):
         self.mongoclient = client
         self.db = pymongo.database.Database(self.mongoclient, mongodb)
         self.collection = pymongo.collection.Collection(self.db, collection)
+        self.urlfield = urlfield
+        self.contentfield = contentfield
 
-        super(ManualWaybackPlusMongoDBClassifierSingle, self).__init__(*args, **kw)
+        super(ManualWaybackPlusMongoDBClassifierSingle, self).__init__(*args,
+                                                                       **kw)
         self.fallbackbutton = tkinter.Button(self.root,
                     text='Load from MongoDB',
                     command=self._set_mongo_content)
@@ -373,7 +446,7 @@ class ManualWaybackPlusMongoDBClassifierSingle(ManualWaybackClassifierSingle):
                                  sticky="SW", padx=10)
     
     def _set_mongo_content(self):
-        """ Get fallback content from MongoDB and load it into the web browser.
+        """Get fallback content from MongoDB and load it into the web browser.
 
         Runs on callback from the 'Load from MongoDB' button. Uses the
         configured pymongo client, database and collection to get text with
@@ -382,14 +455,16 @@ class ManualWaybackPlusMongoDBClassifierSingle(ManualWaybackClassifierSingle):
         url = self.items[self.idx][0]
         try:
             # This is a bit horrid.
-#            page_content = u'<html><body><pre>'+unicode(self.collection.find_one(url)['value'], errors='ignore')+u'</pre></body></html>'
             page_content = ((u'<html><head><meta http-equiv="Content-Type" '
                              u'content="text/html;charset=UTF-8"><head>'
                              u'<body><pre>')+
-                             self.collection.find_one(url)['value']+
+                             self.collection.find_one(
+                                 {self.urlfield: url})[self.contentfield]+
                              u'</pre></body></html>')
         except Exception as e:
-            page_content = "Unable to fetch text from MongoDB for "+url+"."
+            page_content = ("Unable to fetch text from MongoDB for "+url+
+                            ".\n\n(Collection is "+str(self.collection)+
+                            ").\n\n"+str(e)+".\n\n")
             raise e
         finally:
             self._set_browser_content(page_content=page_content)

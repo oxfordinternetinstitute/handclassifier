@@ -19,15 +19,15 @@ categories = ("SI - Service Informational",
               "X - Exclude",
               "? - Unable to determine")
 
-nodemapfn = 'nodemap-sorted-filtered.tsv'
-outfn = 'govUK-hand-classifications.csv'
+nodemapfn = 'output/nodes-all-reduced.tsv'
+outfn = 'govUK-hand-classifications-validation.tsv'
 # Base URL of the Wayback Machine (or OpenWayback) instance being used to
 # supply the raw pages
 wburl = 'http://192.168.1.103:8080/'
 
-# Total number of items is ~15.2m, so this generates
-# ~6000 hand classifications
-proptoclassify = 0.0004
+# Total number of items is ~9.1m, so this generates
+# ~200 hand classifications
+proptoclassify = 0.000024
 
 r = random.Random()
 r.seed(1818118181) # Arbitrary
@@ -36,7 +36,7 @@ rejects = defaultdict(int)
 content = []
 
 #Load all the objects into memory first
-with open(nodemapfn, 'r') as f:
+with open(nodemapfn, 'r', newline='') as f:
     reader = csv.reader(f, dialect='excel-tab')
     for row in reader:
         if r.random() > proptoclassify:
@@ -58,17 +58,20 @@ print("Rejects:", rejects)
 
 completed = 0
 try:
-    with open(outfn, 'r') as output:
+    with open(outfn, 'r', newline='') as output:
         #first check how many classifications have already been done
         for line in output:
             completed = completed + 1
     print(completed, "classifications already completed")
     content = content[completed:]
-    output = open(outfn, 'a')
 except IOError:
     print("Nothing classified yet")
-    output = open(outfn, 'a')
-    output.write("URL;Classification\r\n")
+#    output = open(outfn, 'w', newline='')
+#    output.write("URL;Classification\r\n")
+
+output = open(outfn, 'a', newline='')
+writer = csv.writer(output, dialect='excel-tab')
+
 
 if len(content) == 0:
     exit("Nothing to classify. Exiting.")
@@ -80,7 +83,7 @@ if len(content) == 0:
 
 #Initialise and run the GUI
 classifier = handclassifier.ManualWaybackPlusMongoDBClassifierSingle(
-                'warctext', 'url_to_text',
+                'warctext', 'bs', urlfield='url', contentfield='text',
                 client=pymongo.mongo_client.MongoClient(host='192.168.1.103'),
                 items=content, labels=categories, output=output,
                 wburl=wburl, nprevclass=completed, debug=sys.stderr)
