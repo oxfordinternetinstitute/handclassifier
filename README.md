@@ -21,9 +21,9 @@ Bright. Some example scripts are provided, together with a related piece of
 code which classifies pairs of content against each other; this is earlier and
 very rough, but may prove interesting.
 
-Copyright 2013-2015, Tom Nicholls and Jonathan Bright
+Copyright 2013-2017, Tom Nicholls and Jonathan Bright
 
-contact: tom.nicholls@oii.ox.ac.uk
+contact: tom.nicholls@politics.ox.ac.uk
 
 This work is available under the terms of the GNU General Purpose Licence
 This program is free software: you can redistribute it and/or modify
